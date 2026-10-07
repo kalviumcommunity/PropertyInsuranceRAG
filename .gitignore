@@ -1,0 +1,56 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Secrets and Environment Variables
+.env
+*.env
+!.env.example
+
+# Corpus and Local Data (Git-ignored raw files)
+data/*
+!data/.gitkeep
+
+# Output logs, caches, and test artifacts
+outputs/*
+!outputs/.gitkeep
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Vector database local storage
+chroma_db/
+*.sqlite3
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
