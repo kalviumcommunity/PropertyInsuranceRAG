@@ -205,3 +205,26 @@ pytest
 | **Week 3** | Retrieval & Grounded Generation | Top-k retrieval, metadata filtering, citations engine, prompt engineering & refusal guardrails | Concepts 23–34 |
 | **Week 4** | App UI & Evaluation | Streamlit/Next.js interface, source drawer, end-to-end evaluation & hallucination testing | Concepts 35–40 |
 | **Week 5** | Optimization & Delivery | Performance tuning, latency reduction, final demonstration & mentor review | Final Delivery |
+
+---
+
+## 8. LLM Chat Completion & Error Handling (OpenAI-Compatible Client)
+
+The module [`src/llm_client.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/llm_client.py) powers all interactions with the chat model:
+
+### Features:
+1. **Configurable Endpoint:** Adapts seamlessly to OpenAI, Azure OpenAI, Ollama, or LM Studio by passing `OPENAI_BASE_URL` and `CHAT_MODEL`.
+2. **Transparent Payload Logging:** Logs outbound message payloads (`REQUEST: ...`), model responses (`RESPONSE: ...`), and token counters (`USAGE: ...` prompt, completion, total).
+3. **Robust Error Handling:**
+   - **HTTP 401 (`AuthenticationError`):** Intercepted and reported with clear instructions to check `OPENAI_API_KEY` in `.env`.
+   - **HTTP 429 (`RateLimitError`):** Intercepted with rate-limit / quota warning advising exponential backoff.
+   - **Connection & API Errors:** Catches network timeouts and service-side anomalies cleanly.
+
+### Running the Demo & Simulations:
+```bash
+# Run simulation for 401 and 429 error scenarios
+python src/demo_chat.py --simulate
+
+# Run with an adjuster question (requires valid OPENAI_API_KEY in .env)
+python src/demo_chat.py --question "Does policy HO-3 cover sudden water damage from a burst pipe?"
+```
