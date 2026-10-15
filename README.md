@@ -229,7 +229,82 @@ python src/demo_chat.py --simulate
 python src/demo_chat.py --question "Does policy HO-3 cover sudden water damage from a burst pipe?"
 ```
 
-## 9. Extracted Text Cleaning
+---
+
+## 9. Token Counting, Cost Estimation & Corpus Scaling Analysis
+
+The module [`src/token_counter.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/token_counter.py) handles tokenization measurement using `tiktoken` (`cl100k_base`), calculates asymmetric input vs. output pricing, projects costs across our 4,000-document policy corpus, and demonstrates the non-linear relationship between text length and token count.
+
+### 9.1 What is a Token?
+A token is the atomic unit processed by Large Language Models — typically a subword piece averaging roughly 4 characters or 0.75 words in standard English text. Models do not see characters or full words; they see numerical token identifiers. Because punctuation, morphology, coding syntax, and non-Latin alphabets tokenize differently, token count tracks text length but is **not strictly proportional**.
+
+### 9.2 Running the Token Counter
+```bash
+# Run the complete analysis report and save output to outputs/token_sample_results.txt
+python src/token_counter.py
+
+# Count tokens and characters for custom text
+python src/token_counter.py --text "Under policy HO-3, what is the deductible for water backup?"
+```
+
+### 9.3 Task 1 — Project Corpus Input & Output Token Counts
+For an adjuster query with retrieved context and grounded response:
+- **Sample Input (System Prompt + Retrieved Excerpt + Question):** `174 tokens`
+  - System Prompt: `47 tokens`
+  - Policy Excerpt (HO-3 water backup terms): `89 tokens`
+  - Adjuster Question: `32 tokens`
+- **Sample Output (Assistant Grounded Response):** `84 tokens`
+- **Total Call Tokens:** `258 tokens`
+
+### 9.4 Task 2 — Token Counts Across Samples of Varying Length
+| Sample Level | Chars | Words | Tokens | Chars/Token | Tokens/Word |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Short (Adjuster Question)** | 67 | 10 | 15 | 4.47 | 1.50 |
+| **Medium (Endorsement HO-04-95 Paragraph)** | 494 | 81 | 120 | 4.12 | 1.48 |
+| **Long (Full Policy Document: `data/sample_policy.txt`)** | 13,165 | 1,932 | 2,768 | 4.76 | 1.43 |
+
+### 9.5 Task 3 — Cost Estimation (Asymmetric Rates & Corpus Scale)
+LLM providers bill input tokens and output tokens separately (output tokens require more compute and autoregressive sampling).
+
+$$\text{Cost} = \left(\frac{\text{Input Tokens}}{1,000} \times \text{Rate}_{\text{input}}\right) + \left(\frac{\text{Output Tokens}}{1,000} \times \text{Rate}_{\text{output}}\right)$$
+
+#### Single RAG Call Cost:
+- **Benchmark Rate (\$0.0005/1K input, \$0.0015/1K output):**
+  - Input Cost: \$0.000087
+  - Output Cost: \$0.000126
+  - Total Call Cost: **\$0.000213** (~0.021¢)
+- **Production `gpt-4o-mini` (\$0.15/1M input, \$0.60/1M output):** **\$0.000076** (\$0.076 per 1,000 queries)
+- **Production `gpt-4o` (\$2.50/1M input, \$10.00/1M output):** **\$0.001275** (\$1.275 per 1,000 queries)
+
+#### Corpus Scale Design (4,000 Policy Documents):
+When indexing 4,000 property insurance documents (~2,768 tokens each = ~11.07 million total tokens):
+1. **Upfront Embedding Cost:** With `text-embedding-3-small` at \$0.02 / 1M tokens, embedding all 4,000 documents costs only **\$0.2214** (~22 cents).
+2. **Runtime Query Cost:** Serving 10,000 adjuster queries per month (with top-5 retrieved chunks ~2,500 input tokens + 300 output tokens) costs just **\$5.55/month** on `gpt-4o-mini`.
+3. **Context Limits:** The 128k token window provides ample headroom for multi-chunk retrieval without risk of truncation.
+
+### 9.6 Task 4 — Length-to-Token Non-Linearity Demonstration
+| Category | Sample Preview | Chars | Words | Tokens | Chars/Tok | Tok/Word |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Simple Word** | `refund` | 6 | 1 | 1 | 6.00 | 1.00 |
+| **Compound Word** | `refundable` | 10 | 1 | 2 | 5.00 | 2.00 |
+| **Short Question** | `What is our refund window?` | 26 | 5 | 6 | 4.33 | 1.20 |
+| **Technical Legal Term** | `Noncancellability and indemnification underwriter clause` | 56 | 5 | 10 | 5.60 | 2.00 |
+| **German Compound Term** | `Wohngebäudeversicherungsgesellschaft` | 36 | 1 | 11 | 3.27 | 11.00 |
+| **Spanish Claim Query** | `¿La póliza cubre daños por agua repentinos...` | 57 | 9 | 19 | 3.00 | 2.11 |
+| **Hindi Insurance Term** | `संपत्ति बीमा पॉलिसी दावा निपटान` | 31 | 5 | 32 | 0.97 | 6.40 |
+| **Japanese Policy Peril**| `火災水災特約保険証券` | 10 | 1 | 16 | 0.62 | 16.00 |
+| **Policy ID / Numbers** | `POL-2024-HO3-998234-EX-01` | 25 | 1 | 14 | 1.79 | 14.00 |
+| **JSON Data Payload** | `{"claim_id": "CLM-8812", "amount": 14500.5...}` | 66 | 6 | 28 | 2.36 | 4.67 |
+| **Python Code Snippet** | `def calculate_deductible(claim: float, rat...` | 88 | 13 | 26 | 3.38 | 2.00 |
+
+#### Why Tokens Do Not Track Linearly:
+1. **Morphological Compounding:** Germanic and agglutinative words split into multiple subwords (`Wohngebäude...` takes 11 tokens for 1 word).
+2. **Code and Structured Data:** Punctuation, symbols (`{`, `}`, `_`, `"`), and indentation get split into individual tokens, causing higher token density.
+3. **Non-Latin Scripts:** Byte-pair encodings (such as `cl100k_base`) have fewer dedicated vocabulary slots for Devanagari or Kanji, allocating 1–3 tokens per character.
+
+---
+
+## 10. Extracted Text Cleaning
 
 Run the same cleaning pipeline over every `.txt` file under `data/`. The relative
 directory structure is preserved in `outputs/cleaned_data/`:
