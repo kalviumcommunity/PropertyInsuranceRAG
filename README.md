@@ -24,10 +24,10 @@
 ### 2.1 Team Details & Roles
 | Role | Name | Technical Focus / Strengths | Areas of Growth |
 | :--- | :--- | :--- | :--- |
-| **Project Admin & Lead** | Parv Jain | Git workflow, Project Architecture, Python Backend | Vector DB Optimization, Evaluation Frameworks |
-| **Document Processing Lead** | Team Member 1 | Text extraction, Document Parsing, Cleaning | Chunking strategies for nested insurance tables |
-| **RAG Pipeline Engineer** | Team Member 2 | Embeddings, Vector indexing, Retrieval logic | Re-ranking and hybrid keyword-semantic search |
-| **Evaluation & QA Lead** | Team Member 3 | Grounding guardrails, Pytest, Citation validation | Synthetic query generation & Ragas/TruLens metrics |
+| **Project Admin & Lead** | Parv | Git workflow, Project Architecture, Python Backend | Vector DB Optimization, Evaluation Frameworks |
+| **Document Processing Lead** | Parv | Text extraction, Document Parsing, Cleaning | Chunking strategies for nested insurance tables |
+| **RAG Pipeline Engineer** | Parth | Embeddings, Vector indexing, Retrieval logic | Re-ranking and hybrid keyword-semantic search |
+| **Evaluation & QA Lead** | Parth | Grounding guardrails, Pytest, Citation validation | Synthetic query generation & Ragas/TruLens metrics |
 
 ### 2.2 Working Agreements & Team Norms
 1. **Daily Standup:** Daily 10-minute sync at 09:30 AM covering:
@@ -302,3 +302,26 @@ When indexing 4,000 property insurance documents (~2,768 tokens each = ~11.07 mi
 2. **Code and Structured Data:** Punctuation, symbols (`{`, `}`, `_`, `"`), and indentation get split into individual tokens, causing higher token density.
 3. **Non-Latin Scripts:** Byte-pair encodings (such as `cl100k_base`) have fewer dedicated vocabulary slots for Devanagari or Kanji, allocating 1–3 tokens per character.
 
+---
+
+## 10. Extracted Text Cleaning
+
+Run the same cleaning pipeline over every `.txt` file under `data/`. The relative
+directory structure is preserved in `outputs/cleaned_data/`:
+
+```bash
+python -m src.text_cleaner
+```
+
+Custom input and output directories can be supplied:
+
+```bash
+python -m src.text_cleaner path/to/raw_text path/to/cleaned_text
+```
+
+The cleaner removes page markers and navigation lines, detects short lines
+repeated at document edges across the corpus, applies Unicode NFKC normalization,
+repairs common extraction artifacts, joins hard-wrapped lines, and collapses
+excess whitespace. The committed [before sample](examples/raw_policy_excerpt.txt)
+and [after sample](examples/cleaned_policy_excerpt.txt) demonstrate the
+transformation. Tests run with `pytest`.
