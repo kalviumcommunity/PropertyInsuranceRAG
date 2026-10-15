@@ -32,10 +32,13 @@ wheels/
 # Corpus and Local Data (Git-ignored raw files)
 data/*
 !data/.gitkeep
+!data/sample_policy.txt
+!data/policy.txt
 
 # Output logs, caches, and test artifacts
 outputs/*
 !outputs/.gitkeep
+!outputs/token_sample_results.txt
 *.log
 .pytest_cache/
 .coverage
