@@ -228,3 +228,25 @@ python src/demo_chat.py --simulate
 # Run with an adjuster question (requires valid OPENAI_API_KEY in .env)
 python src/demo_chat.py --question "Does policy HO-3 cover sudden water damage from a burst pipe?"
 ```
+
+## 9. Extracted Text Cleaning
+
+Run the same cleaning pipeline over every `.txt` file under `data/`. The relative
+directory structure is preserved in `outputs/cleaned_data/`:
+
+```bash
+python -m src.text_cleaner
+```
+
+Custom input and output directories can be supplied:
+
+```bash
+python -m src.text_cleaner path/to/raw_text path/to/cleaned_text
+```
+
+The cleaner removes page markers and navigation lines, detects short lines
+repeated at document edges across the corpus, applies Unicode NFKC normalization,
+repairs common extraction artifacts, joins hard-wrapped lines, and collapses
+excess whitespace. The committed [before sample](examples/raw_policy_excerpt.txt)
+and [after sample](examples/cleaned_policy_excerpt.txt) demonstrate the
+transformation. Tests run with `pytest`.
