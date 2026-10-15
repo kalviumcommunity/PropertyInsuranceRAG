@@ -24,10 +24,10 @@
 ### 2.1 Team Details & Roles
 | Role | Name | Technical Focus / Strengths | Areas of Growth |
 | :--- | :--- | :--- | :--- |
-| **Project Admin & Lead** | Parv Jain | Git workflow, Project Architecture, Python Backend | Vector DB Optimization, Evaluation Frameworks |
-| **Document Processing Lead** | Team Member 1 | Text extraction, Document Parsing, Cleaning | Chunking strategies for nested insurance tables |
-| **RAG Pipeline Engineer** | Team Member 2 | Embeddings, Vector indexing, Retrieval logic | Re-ranking and hybrid keyword-semantic search |
-| **Evaluation & QA Lead** | Team Member 3 | Grounding guardrails, Pytest, Citation validation | Synthetic query generation & Ragas/TruLens metrics |
+| **Project Admin & Lead** | Parv | Git workflow, Project Architecture, Python Backend | Vector DB Optimization, Evaluation Frameworks |
+| **Document Processing Lead** | Parv | Text extraction, Document Parsing, Cleaning | Chunking strategies for nested insurance tables |
+| **RAG Pipeline Engineer** | Parth | Embeddings, Vector indexing, Retrieval logic | Re-ranking and hybrid keyword-semantic search |
+| **Evaluation & QA Lead** | Parth | Grounding guardrails, Pytest, Citation validation | Synthetic query generation & Ragas/TruLens metrics |
 
 ### 2.2 Working Agreements & Team Norms
 1. **Daily Standup:** Daily 10-minute sync at 09:30 AM covering:
