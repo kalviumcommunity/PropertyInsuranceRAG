@@ -39,6 +39,7 @@ data/*
 outputs/*
 !outputs/.gitkeep
 !outputs/token_sample_results.txt
+!outputs/chunk_comparison_report.txt
 *.log
 .pytest_cache/
 .coverage
