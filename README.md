@@ -326,64 +326,33 @@ excess whitespace. The committed [before sample](examples/raw_policy_excerpt.txt
 and [after sample](examples/cleaned_policy_excerpt.txt) demonstrate the
 transformation. Tests run with `pytest`.
 
----
+## 11. Chunk Provenance Metadata
 
-## 11. Document Chunking Strategies & Boundary Comparison
+[`src/chunking.py`](./src/chunking.py) splits UTF-8 text into chunks and keeps each chunk's text alongside a consistent metadata object:
 
-Cleaned property insurance documents are too extensive to retrieve or embed whole. The module [`src/chunker.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/chunker.py) implements, compares, and evaluates multiple chunking strategies on our insurance policy corpus.
+| Field | Meaning |
+| :--- | :--- |
+| `source` | Document identifier supplied by the caller (or the file name for `chunk_file`). |
+| `section` | Most recently detected all-caps or `SECTION`/`COVERAGE` heading; `null` when unavailable. |
+| `page` | Most recently detected page marker; `null` when unavailable. |
+| `position` | Zero-based chunk index within the document. |
+| `start_char`, `end_char` | Zero-based, half-open character offsets into the original document. |
 
-### 11.1 Running the Chunking Pipeline
-```bash
-# Run comparison across all strategies on sample policy and generate reports
-python src/chunker.py
+Use `chunk_corpus(Path("data"))` to process a corpus; each source identifier is its path relative to that corpus, avoiding collisions between equal file names in different folders. `chunk_document(text, "policies/homeowners.txt")` can also be used for an individual document. Each `Chunk` object's `to_dict()` representation and JSONL serialization keep text and metadata together. The offsets make the source relationship verifiable: `text[start_char:end_char] == chunk.text`. [`examples/chunk_metadata_sample.jsonl`](./examples/chunk_metadata_sample.jsonl) contains sample text/metadata pairs with a matching source excerpt in [`examples/chunk_metadata_source.txt`](./examples/chunk_metadata_source.txt). Run the focused checks with `pytest tests/test_chunking.py`.
 
-# Run on a custom document
-python src/chunker.py --doc path/to/policy.txt
-```
+## 12. Full-Corpus Ingestion and Reconciliation
 
-Generated deliverables:
-- Comparison Report: [`outputs/chunk_comparison_report.txt`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/chunk_comparison_report.txt)
-- Sample Chunks with Boundary Cards: [`examples/sample_chunks.md`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/sample_chunks.md)
-- Complete Serialized Chunks: [`examples/sample_chunks.json`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/sample_chunks.json)
+Run `python -m src.ingestion` to load every file under `data/`, clean the text using the shared corpus boilerplate rules, split it into chunks, and attach source/section/page/position/span metadata. The pipeline writes an aggregate, per-document accounting report to `outputs/ingestion_summary.json` and a small set of traceable review chunks to `outputs/ingestion_sample_chunks.jsonl`. Samples exclude chunks matching common declaration labels and long numeric identifiers.
 
-### 11.2 Strategies Evaluated (Tasks 1 & 2)
-1. **Fixed-Size Token Window with Overlap (`FixedTokenChunker`):**
-   - Sliding window of 400 tokens with 80 tokens overlap.
-   - Slices tokens rigidly regardless of sentence, paragraph, or policy clause boundaries.
-2. **Paragraph-Semantic Boundary Chunking (`ParagraphChunker`):**
-   - Aggregates natural paragraphs up to target size (~400 tokens, max 550) with 1-paragraph overlap.
-   - Never cuts sentences in half; falls back to sentence boundary splitting only on oversized paragraphs.
-3. **Hierarchical Policy-Aware Chunking (`HierarchicalPolicyChunker`):**
-   - Parses insurance structural hierarchy (Sections, Coverages, Endorsements, Conditions).
-   - Injects section breadcrumb headers (e.g., `[SECTION I – PROPERTY COVERAGES > COVERAGE C]`) into each chunk to guarantee unambiguous legal authority and section context during retrieval.
-
-### 11.3 Statistical Comparison Across Strategies (Task 3)
-Evaluated on Property Insurance Policy Form HO-3 (12,933 chars / 2,700 tokens):
-
-| Strategy | Chunks | Avg Tokens | Min-Max | Std Dev | Mid-Sentence Cuts | Overlap Overhead |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Fixed-Token (400 tok, 80 overlap)** | 9 | 371.1 | 140–400 | 86.7 | **7** | 1.24x (3,340 tokens) |
-| **Paragraph-Semantic (target 400)** | 11 | 262.3 | 123–385 | 88.6 | **0** | 1.07x (2,885 tokens) |
-| **Hierarchical-Policy-Aware** | 12 | 420.8 | 56–714 | 209.8 | **0** | 1.87x (5,050 tokens) |
-
-### 11.4 Strategy Justification & Architecture Choice (Task 4)
-**Chosen Strategy:** **Hierarchical Policy-Aware Semantic Chunking (with Paragraph Fallback)**
-
-#### Why This Fits Property Insurance Retrieval:
-1. **Clause Cohesion (Eliminating Fractured Deductibles & Exceptions):**
-   In insurance policies, every coverage rule is governed by perils, exceptions, and deductibles (e.g., Endorsement HO-04-95 covers sewer backup up to \$10,000 subject to a \$1,000 special deductible). Fixed-token windowing severed deductible clauses and peril conditions across 7 distinct chunk boundaries. In contrast, semantic boundary chunking achieves **0 mid-sentence cuts**, guaranteeing that adjusters never retrieve coverage grants without their mandatory deductibles or exclusions.
-2. **Section Breadcrumb Preservation for Grounded Citations:**
-   Our assistant prompt requires citation of exact section identifiers. Hierarchical chunking prepends section breadcrumbs (`[SECTION I – EXCLUSIONS]`, `[SPECIAL ENDORSEMENT: WATER BACK-UP]`) into chunk text and metadata, enabling high-precision vector retrieval and zero-hallucination citations.
-3. **Context Window & Cost Efficiency:**
-   At an average of ~350–420 tokens per chunk, retrieving top-5 chunks consumes ~2,000 input tokens (~0.03¢ per query on `gpt-4o-mini`), well within model context limits while maintaining low latency.
+Every non-control file is counted as a source document. Successfully ingested documents plus explicitly recorded failures must equal that count; unsupported file types and read/clean/chunk errors are recorded as failures. The repository `.gitkeep` placeholder is explicitly reported as skipped, not counted as a document. A runtime check raises if the source count does not reconcile. `pytest tests/test_ingestion.py` covers accounting, recorded failures, sample provenance, and output safety.
 
 ---
 
-## 12. Token-Aware Chunking with Controlled Overlap
+## 13. Token-Aware Chunking with Controlled Overlap
 
 Character-based chunking cannot guarantee model token limits or semantic preservation at cut boundaries. The module [`src/token_aware_chunker.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/token_aware_chunker.py) strictly measures and sets chunk size in tokens using `tiktoken` (`cl100k_base`) and implements a sliding window with controlled token overlap.
 
-### 12.1 Running the Token-Aware Chunker & Boundary Demo
+### 13.1 Running the Token-Aware Chunker & Boundary Demo
 ```bash
 # Run the token-aware chunker with 500-token chunks and 100-token overlap
 python src/token_aware_chunker.py
@@ -397,14 +366,14 @@ Artifacts produced:
 - **Serialized Token Chunks (JSON):** [`outputs/token_chunks_sample.json`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/token_chunks_sample.json)
 - **Boundary Context Demonstration (Markdown):** [`examples/boundary_context_overlap_demo.md`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/boundary_context_overlap_demo.md)
 
-### 12.2 Sizing by Tokens & Controlled Overlap (Tasks 1 & 2)
+### 13.2 Sizing by Tokens & Controlled Overlap (Tasks 1 & 2)
 - **Tokenizer:** `tiktoken` with `cl100k_base` encoding (compatible with `gpt-4o-mini` and `text-embedding-3-small`).
 - **Sizing Rule:** Chunks are sliced strictly along token array indices, ensuring no chunk exceeds the model's token allocation.
 - **Controlled Overlap Formula:**
   $$\text{Step Size} = \text{Chunk Size} - \text{Chunk Overlap} = 500 - 100 = 400 \text{ tokens}$$
   Each adjacent chunk $i$ repeats exactly the trailing $N=100$ tokens of chunk $i-1$ as its leading tokens.
 
-### 12.3 Demonstrating Overlap Preserving Boundary Context (Task 3)
+### 13.3 Demonstrating Overlap Preserving Boundary Context (Task 3)
 Inspecting the boundary cut at token index 500 on Property Insurance Policy Form HO-3:
 
 #### A. Without Overlap (`overlap = 0 tokens`):
@@ -417,17 +386,15 @@ Inspecting the boundary cut at token index 500 on Property Insurance Policy Form
   `"...COVERAGE A – DWELLING 1. We cover: a. The dwelling on the 'residence premises'... and heating and cooling machinery attached to the dwelling. 2. We do not cover: a. Land..."`
 - **Preserved Meaning:** When an adjuster asks about Coverage A dwelling exclusions, retrieving Chunk 1 provides both the coverage grant and its exclusions together in a single self-contained context.
 
-### 12.4 Setting Justifications for `gpt-4o-mini` (Task 4)
+### 13.4 Setting Justifications for `gpt-4o-mini` (Task 4)
 | Parameter | Setting | Architectural Justification |
 | :--- | :---: | :--- |
 | **Chunk Size** | **500 tokens** | Standard property insurance sections (Coverage A, B, C, D) and endorsement forms (HO-04-95) average 250–450 tokens. Sizing at 500 tokens guarantees an entire policy provision fits within one chunk. Retrieving top-5 chunks consumes ~2,500 tokens (<2% of the 128k context window). |
 | **Chunk Overlap** | **100 tokens (20%)** | Complex insurance bullet clauses range from 50 to 80 tokens. A 100-token overlap guarantees that any sentence severed at a boundary is completely reproduced in the adjacent chunk. |
 | **Cost Overhead** | **1.22x (+22%)** | Overlap overhead ratio = $\frac{500}{400} = 1.25\text{x}$. Indexing 4,000 documents (~11M tokens) with `text-embedding-3-small` costs **\$0.27** with overlap vs. **\$0.22** without overlap—a 5-cent difference that guarantees claim fidelity. |
 
-### 12.5 Sample Output Comparison (Task 5)
+### 13.5 Sample Output Comparison (Task 5)
 | Configuration | Chunks | Avg Tokens | Min–Max Tokens | Total Emitted Tokens | Overlap Overhead |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Zero Overlap (`size=500, overlap=0`)** | 6 | 461.3 | 268–500 | 2,768 | 1.00x |
 | **Controlled Overlap (`size=500, overlap=100`)** | 7 | 481.1 | 368–500 | 3,368 | 1.22x |
-
-

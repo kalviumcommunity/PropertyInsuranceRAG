@@ -18,6 +18,12 @@ def test_clean_text_removes_page_markers_navigation_and_repeated_lines():
     assert cleaned == "Coverage applies to the dwelling."
 
 
+def test_clean_text_preserves_structural_heading_boundaries():
+    cleaned = clean_text("DEFINITIONS\nIn this policy, a term has a meaning.")
+
+    assert cleaned == "DEFINITIONS\n\nIn this policy, a term has a meaning."
+
+
 def test_clean_corpus_cleans_every_text_file_and_preserves_tree(tmp_path):
     source = tmp_path / "raw"
     output = tmp_path / "cleaned"

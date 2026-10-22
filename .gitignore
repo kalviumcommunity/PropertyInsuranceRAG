@@ -42,6 +42,8 @@ outputs/*
 !outputs/chunk_comparison_report.txt
 !outputs/token_overlap_demonstration.txt
 !outputs/token_chunks_sample.json
+!outputs/ingestion_summary.json
+!outputs/ingestion_sample_chunks.jsonl
 *.log
 .pytest_cache/
 .coverage
