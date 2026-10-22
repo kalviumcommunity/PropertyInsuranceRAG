@@ -1,0 +1,37 @@
+{
+  "input_directory": "data",
+  "chunk_size_characters": 500,
+  "total_source_documents": 2,
+  "successfully_ingested_documents": 2,
+  "failed_documents": 0,
+  "total_chunks_created": 96,
+  "skipped_files": [
+    {
+      "source": ".gitkeep",
+      "reason": "repository control placeholder"
+    }
+  ],
+  "failures": [],
+  "documents": [
+    {
+      "source": "policy.txt",
+      "status": "ingested",
+      "raw_characters": 13165,
+      "cleaned_characters": 12604,
+      "chunks": 48
+    },
+    {
+      "source": "sample_policy.txt",
+      "status": "ingested",
+      "raw_characters": 13165,
+      "cleaned_characters": 12604,
+      "chunks": 48
+    }
+  ],
+  "accounting": {
+    "source_documents": 2,
+    "ingested_plus_failures": 2,
+    "valid": true
+  },
+  "sample_chunks_saved": 2
+}

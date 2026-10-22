@@ -16,6 +16,16 @@ NAVIGATION = re.compile(
 ARTIFACTS = str.maketrans({"\ufeff": "", "\u200b": "", "\u00ad": "", "\ufffd": " "})
 
 
+def _is_structural_heading(line: str) -> bool:
+    heading = line.strip()
+    return (
+        len(heading) <= 120
+        and heading.casefold() != "coverage"
+        and any(character.isalpha() for character in heading)
+        and heading == heading.upper()
+    )
+
+
 def normalize_text(text: str) -> str:
     """Normalize Unicode, whitespace, and line wraps without joining paragraphs."""
     text = unicodedata.normalize("NFKC", text).translate(ARTIFACTS)
@@ -67,6 +77,11 @@ def clean_text(text: str, repeated_lines: set[str] | None = None) -> str:
         if stripped in repeated_lines or PAGE_MARKER.fullmatch(stripped):
             continue
         if PAGE_COUNT.fullmatch(stripped) or NAVIGATION.fullmatch(stripped):
+            continue
+        if _is_structural_heading(stripped):
+            if kept_lines and kept_lines[-1].strip():
+                kept_lines.append("")
+            kept_lines.extend((line, ""))
             continue
         kept_lines.append(line)
     return normalize_text("\n".join(kept_lines))

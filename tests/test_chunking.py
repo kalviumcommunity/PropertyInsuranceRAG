@@ -34,6 +34,16 @@ def test_chunks_have_consistent_provenance_and_trace_to_source():
     assert chunks[-1].metadata.page == 2
 
 
+def test_coverage_sentence_is_not_mistaken_for_a_section_heading():
+    text = "COVERAGE A - DWELLING\n\nCoverage applies to the dwelling."
+
+    chunks = chunk_document(text, "policy.txt", max_chars=100)
+
+    assert len(chunks) == 1
+    assert chunks[0].text == text
+    assert chunks[0].metadata.section == "COVERAGE A - DWELLING"
+
+
 def test_large_paragraphs_split_at_character_limit_with_exact_spans():
     text = "A policy statement with enough words to split across multiple chunks."
 
@@ -46,6 +56,32 @@ def test_large_paragraphs_split_at_character_limit_with_exact_spans():
         text[chunk.metadata.start_char : chunk.metadata.end_char] == chunk.text
         for chunk in chunks
     )
+
+
+def test_long_paragraphs_prefer_sentence_boundaries():
+    text = "First complete clause. Second complete clause. Third complete clause."
+
+    chunks = chunk_document(text, "policy.txt", max_chars=30)
+
+    assert len(chunks) > 1
+    assert all(chunk.text.rstrip().endswith((".", "!", "?")) for chunk in chunks[:-1])
+    assert all(len(chunk.text) <= 30 for chunk in chunks)
+    assert "".join(chunk.text for chunk in chunks) == text
+
+
+def test_long_paragraphs_do_not_split_after_single_letter_list_markers():
+    text = (
+        "We do not cover: a. land and soil; b. underground pipes outside the "
+        "foundation; c. structures used for business purposes unless endorsed."
+    )
+
+    chunks = chunk_document(text, "policy.txt", max_chars=60)
+
+    assert all(
+        not chunk.text.rstrip().endswith(("a.", "b.", "c."))
+        for chunk in chunks[:-1]
+    )
+    assert "".join(chunk.text for chunk in chunks) == text
 
 
 def test_chunk_file_and_jsonl_keep_same_metadata_schema(tmp_path: Path):
