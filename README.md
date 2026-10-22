@@ -325,3 +325,55 @@ repairs common extraction artifacts, joins hard-wrapped lines, and collapses
 excess whitespace. The committed [before sample](examples/raw_policy_excerpt.txt)
 and [after sample](examples/cleaned_policy_excerpt.txt) demonstrate the
 transformation. Tests run with `pytest`.
+
+---
+
+## 11. Document Chunking Strategies & Boundary Comparison
+
+Cleaned property insurance documents are too extensive to retrieve or embed whole. The module [`src/chunker.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/chunker.py) implements, compares, and evaluates multiple chunking strategies on our insurance policy corpus.
+
+### 11.1 Running the Chunking Pipeline
+```bash
+# Run comparison across all strategies on sample policy and generate reports
+python src/chunker.py
+
+# Run on a custom document
+python src/chunker.py --doc path/to/policy.txt
+```
+
+Generated deliverables:
+- Comparison Report: [`outputs/chunk_comparison_report.txt`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/chunk_comparison_report.txt)
+- Sample Chunks with Boundary Cards: [`examples/sample_chunks.md`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/sample_chunks.md)
+- Complete Serialized Chunks: [`examples/sample_chunks.json`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/sample_chunks.json)
+
+### 11.2 Strategies Evaluated (Tasks 1 & 2)
+1. **Fixed-Size Token Window with Overlap (`FixedTokenChunker`):**
+   - Sliding window of 400 tokens with 80 tokens overlap.
+   - Slices tokens rigidly regardless of sentence, paragraph, or policy clause boundaries.
+2. **Paragraph-Semantic Boundary Chunking (`ParagraphChunker`):**
+   - Aggregates natural paragraphs up to target size (~400 tokens, max 550) with 1-paragraph overlap.
+   - Never cuts sentences in half; falls back to sentence boundary splitting only on oversized paragraphs.
+3. **Hierarchical Policy-Aware Chunking (`HierarchicalPolicyChunker`):**
+   - Parses insurance structural hierarchy (Sections, Coverages, Endorsements, Conditions).
+   - Injects section breadcrumb headers (e.g., `[SECTION I – PROPERTY COVERAGES > COVERAGE C]`) into each chunk to guarantee unambiguous legal authority and section context during retrieval.
+
+### 11.3 Statistical Comparison Across Strategies (Task 3)
+Evaluated on Property Insurance Policy Form HO-3 (12,933 chars / 2,700 tokens):
+
+| Strategy | Chunks | Avg Tokens | Min-Max | Std Dev | Mid-Sentence Cuts | Overlap Overhead |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Fixed-Token (400 tok, 80 overlap)** | 9 | 371.1 | 140–400 | 86.7 | **7** | 1.24x (3,340 tokens) |
+| **Paragraph-Semantic (target 400)** | 11 | 262.3 | 123–385 | 88.6 | **0** | 1.07x (2,885 tokens) |
+| **Hierarchical-Policy-Aware** | 12 | 420.8 | 56–714 | 209.8 | **0** | 1.87x (5,050 tokens) |
+
+### 11.4 Strategy Justification & Architecture Choice (Task 4)
+**Chosen Strategy:** **Hierarchical Policy-Aware Semantic Chunking (with Paragraph Fallback)**
+
+#### Why This Fits Property Insurance Retrieval:
+1. **Clause Cohesion (Eliminating Fractured Deductibles & Exceptions):**
+   In insurance policies, every coverage rule is governed by perils, exceptions, and deductibles (e.g., Endorsement HO-04-95 covers sewer backup up to \$10,000 subject to a \$1,000 special deductible). Fixed-token windowing severed deductible clauses and peril conditions across 7 distinct chunk boundaries. In contrast, semantic boundary chunking achieves **0 mid-sentence cuts**, guaranteeing that adjusters never retrieve coverage grants without their mandatory deductibles or exclusions.
+2. **Section Breadcrumb Preservation for Grounded Citations:**
+   Our assistant prompt requires citation of exact section identifiers. Hierarchical chunking prepends section breadcrumbs (`[SECTION I – EXCLUSIONS]`, `[SPECIAL ENDORSEMENT: WATER BACK-UP]`) into chunk text and metadata, enabling high-precision vector retrieval and zero-hallucination citations.
+3. **Context Window & Cost Efficiency:**
+   At an average of ~350–420 tokens per chunk, retrieving top-5 chunks consumes ~2,000 input tokens (~0.03¢ per query on `gpt-4o-mini`), well within model context limits while maintaining low latency.
+
