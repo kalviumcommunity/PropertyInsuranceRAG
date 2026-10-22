@@ -9,7 +9,11 @@ from typing import Iterable, Iterator
 PAGE_MARKER = re.compile(
     r"^\s*(?:page\s+)?(\d+)(?:\s+of\s+\d+)?\s*$", re.IGNORECASE
 )
-SECTION_PREFIX = re.compile(r"^(?:section|coverage)\b", re.IGNORECASE)
+SECTION_HEADING = re.compile(
+    r"^(?:section\s+[ivx0-9]+|coverage\s+[a-z0-9]+)"
+    r"(?:\s*[-–—:]\s*.+)?$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -60,7 +64,7 @@ def _section_heading(text: str) -> str | None:
     heading = text.strip()
     if not heading or len(heading) > 120:
         return None
-    if SECTION_PREFIX.match(heading):
+    if SECTION_HEADING.fullmatch(heading):
         return heading
     if any(character.isalpha() for character in heading) and heading == heading.upper():
         if not any(mark in heading for mark in ".?!"):
@@ -72,10 +76,32 @@ def _split_span(
     text: str, start: int, end: int, max_chars: int
 ) -> Iterator[tuple[int, int]]:
     while end - start > max_chars:
-        split_at = start + max_chars
-        preferred_split = text.rfind(" ", start + max_chars // 2, split_at)
-        if preferred_split > start:
-            split_at = preferred_split + 1
+        limit = start + max_chars
+        minimum = start + max_chars // 2
+        sentence_boundaries = []
+        for match in re.finditer(r"[.!?](?=\s|$)", text[minimum:limit]):
+            punctuation = minimum + match.start()
+            preceding_text = text[max(start, punctuation - 5) : punctuation + 1]
+            if match.group() == "." and re.search(
+                r"\b(?:[a-z]|\d{1,2})\.$", preceding_text, re.IGNORECASE
+            ):
+                continue
+            sentence_boundaries.append(minimum + match.end())
+        clause_boundaries = [
+            minimum + match.end()
+            for match in re.finditer(r";(?=\s|$)", text[minimum:limit])
+        ]
+        if sentence_boundaries:
+            split_at = sentence_boundaries[-1]
+        elif clause_boundaries:
+            split_at = clause_boundaries[-1]
+        else:
+            split_at = limit
+            preferred_split = text.rfind(" ", minimum, limit)
+            if preferred_split > start:
+                split_at = preferred_split + 1
+        if split_at < end and text[split_at].isspace():
+            split_at += 1
         yield start, split_at
         start = split_at
     if start < end:

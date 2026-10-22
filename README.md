@@ -339,3 +339,9 @@ transformation. Tests run with `pytest`.
 | `start_char`, `end_char` | Zero-based, half-open character offsets into the original document. |
 
 Use `chunk_corpus(Path("data"))` to process a corpus; each source identifier is its path relative to that corpus, avoiding collisions between equal file names in different folders. `chunk_document(text, "policies/homeowners.txt")` can also be used for an individual document. Each `Chunk` object's `to_dict()` representation and JSONL serialization keep text and metadata together. The offsets make the source relationship verifiable: `text[start_char:end_char] == chunk.text`. [`examples/chunk_metadata_sample.jsonl`](./examples/chunk_metadata_sample.jsonl) contains sample text/metadata pairs with a matching source excerpt in [`examples/chunk_metadata_source.txt`](./examples/chunk_metadata_source.txt). Run the focused checks with `pytest tests/test_chunking.py`.
+
+## 12. Full-Corpus Ingestion and Reconciliation
+
+Run `python -m src.ingestion` to load every file under `data/`, clean the text using the shared corpus boilerplate rules, split it into chunks, and attach source/section/page/position/span metadata. The pipeline writes an aggregate, per-document accounting report to `outputs/ingestion_summary.json` and a small set of traceable review chunks to `outputs/ingestion_sample_chunks.jsonl`. Samples exclude chunks matching common declaration labels and long numeric identifiers.
+
+Every non-control file is counted as a source document. Successfully ingested documents plus explicitly recorded failures must equal that count; unsupported file types and read/clean/chunk errors are recorded as failures. The repository `.gitkeep` placeholder is explicitly reported as skipped, not counted as a document. A runtime check raises if the source count does not reconcile. `pytest tests/test_ingestion.py` covers accounting, recorded failures, sample provenance, and output safety.
