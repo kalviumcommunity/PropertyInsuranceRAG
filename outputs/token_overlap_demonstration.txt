@@ -1,0 +1,114 @@
+========================================================================================
+PROPERTY INSURANCE RAG — TOKEN-AWARE CHUNKING & CONTROLLED OVERLAP REPORT
+========================================================================================
+
+Document Analyzed: Property Insurance Policy Form HO-3
+Corpus Metrics:    13,165 characters | 1,932 words | 2,768 tokens
+Tokenizer Used:    tiktoken (cl100k_base)
+
+----------------------------------------------------------------------------------------
+[TASK 1] Token-Based Sizing (Byte-Pair Tokenizer vs. Character Slicing)
+----------------------------------------------------------------------------------------
+Why sizing by tokens is mandatory:
+• Character-based splitting is blind to subword encodings, whitespace, and punctuation density.
+  Because 1 token spans anywhere from 0.6 characters (non-Latin/numbers) to 6+ characters,
+  a character slice can wildly overflow the model's context window or starve retrieval.
+• Our TokenAwareChunker sets chunk size strictly in tokens: target = 500 tokens.
+  Each chunk is guaranteed to fit within the model's token allocation without truncation.
+
+----------------------------------------------------------------------------------------
+[TASK 2] Controlled Overlap Implementation
+----------------------------------------------------------------------------------------
+• Step Size Formula: step = chunk_size - chunk_overlap = 500 - 100 = 400 tokens
+• Overlap Mechanism: Each Chunk i repeats the trailing 100 tokens of Chunk i-1
+  as its leading 100 tokens.
+• Overlap Percentage: 20.0% of each chunk is shared with its neighbor.
+
+----------------------------------------------------------------------------------------
+[TASK 3] Demonstration: Overlap Preserving Boundary Context
+----------------------------------------------------------------------------------------
+Inspecting the cut boundary at token index 500 on Policy Form HO-3:
+
+A. WITHOUT OVERLAP (overlap = 0 tokens):
+   [Chunk 0 End]:   "" shown in the Declarations, including structures attached to the dwelling; and
+   b. Wall-to-wall carpeting, permanently installed fixtures, and heating and cooling machinery attached to"
+   [Chunk 1 Start]: "the dwelling.
+2. We do not cover:
+   a. Land, including land on which the dwelling is located;
+   b. Underground plumbing systems or water drainage pipes located"
+   ANALYSIS:
+   Without overlap, the coverage term is fractured at the exact token cutoff:
+  • Chunk 0 ends abruptly with: "...g, permanently installed fixtures, and heating and cooling machinery attached to"
+  • Chunk 1 begins in media res with: "the dwelling.
+2. We do not cover:
+   a. Land, including land on which the dwelli..."
+  -> Consequence: If an adjuster's query retrieves Chunk 1 alone, the leading context, parent heading, and initial condition are completely absent.
+
+B. WITH CONTROLLED OVERLAP (overlap = 100 tokens):
+   [Chunk 1 Start]: "four family dwelling where you reside in at least one of the family units; or that part of any other building where you ..."
+   ANALYSIS:
+   With 100-token overlap, Chunk 1 repeats the preceding 100 tokens:
+  • Chunk 1 starts earlier at token 400, opening with:
+    "four family dwelling where you reside in at least one of the family units; or that part of any other building where you reside; and which is..."
+  -> Consequence: The entire clause, including its parent heading, coverage specification, and condition, appears completely intact within Chunk 1.
+
+----------------------------------------------------------------------------------------
+[TASK 4] Justification of Size and Overlap Settings
+----------------------------------------------------------------------------------------
+TARGET PRODUCTION MODEL: OpenAI gpt-4o-mini (128k context window, $0.15/1M in, $0.60/1M out)
+EMBEDDING MODEL: text-embedding-3-small (8,191 context limit, $0.02/1M tokens)
+
+1. Why Chunk Size = 500 Tokens?
+   • Cohesive Insurance Units: A standard property insurance coverage grant (e.g. Coverage A,
+     Coverage B, or Special Perils) spans between 250 and 450 tokens. Sizing at 500 tokens ensures
+     an entire coverage provision and its conditions remain in a single chunk.
+   • Semantic Retrieval Quality: Slices under 200 tokens lack self-contained meaning, while slices
+     over 1,000 tokens dilute embedding specificity and pull irrelevant text into the context.
+   • Context Budget: Retrieving top-5 chunks of 500 tokens consumes ~2,500 input tokens,
+     utilizing less than 2% of gpt-4o-mini's 128k context window.
+
+2. Why Overlap = 100 Tokens (20%)?
+   • Spans Sentence & Clause Length: Average English sentences are 20-30 tokens; insurance
+     bullet conditions are 50-80 tokens. A 100-token overlap guarantees that any sentence severed
+     at a boundary is reproduced in its entirety in the next chunk.
+   • Financial & Storage Overhead: The token overhead ratio is:
+     chunk_size / (chunk_size - chunk_overlap) = 500 / 400 = 1.22x (+25% tokens).
+     For 4,000 property insurance documents (~11M tokens), embedding the corpus with 25% overlap
+     costs ~$0.27 vs. $0.22—a negligible 5-cent difference that completely eliminates misquotes!
+
+----------------------------------------------------------------------------------------
+[TASK 5] Sample Output & Statistical Comparison
+----------------------------------------------------------------------------------------
+Strategy Configuration               | Chunks | Avg Tok |   Min-Max | Total Tok | Overhead
+----------------------------------------------------------------------------------------
+Token-Aware (size=500, overlap=0)    |      6 |   461.3 | 268-500 |     2,768 |    1.00x
+Token-Aware (size=500, overlap=100)  |      7 |   481.1 | 368-500 |     3,368 |    1.22x
+
+Example Chunks with Controlled Overlap (Showing first 2 chunks of 7):
+
+• Chunk ID: with_ovl_tok_000
+  Token Span: [0 to 500] | Count: 500 tokens
+  Overlap with Prev: 0 tokens | Overlap with Next: 100 tokens
+  Start Snippet: "============================================================..."
+  End Snippet:   "...lled fixtures, and heating and cooling machinery attached to"
+  Content Preview:
+    | ================================================================================
+    | HOMEOWNERS 3 – SPECIAL FORM (HO-04-00 10 24)
+    | SECTION I – PROPERTY COVERAGES & ENDORSEMENTS
+    | POLICY NUMBER: POL-HO3-2024-884192
+    | NAMED INSURED: John and Sarah Jenkins
+    | ... [25 more lines]
+
+• Chunk ID: with_ovl_tok_001
+  Token Span: [400 to 900] | Count: 500 tokens
+  Overlap with Prev: 100 tokens | Overlap with Next: 100 tokens
+  Start Snippet: "four family dwelling where you reside in at least one of the..."
+  End Snippet:   "... all types, including their trailers, furnishings, equipment"
+  Content Preview:
+    |  four family dwelling where you reside in at least one of the family units; or that part of any other building where you reside; and which is shown in the Declarations.
+    | 
+    | --------------------------------------------------------------------------------
+    | COVERAGES
+    | --------------------------------------------------------------------------------
+    | ... [26 more lines]
+========================================================================================

@@ -40,6 +40,8 @@ outputs/*
 !outputs/.gitkeep
 !outputs/token_sample_results.txt
 !outputs/chunk_comparison_report.txt
+!outputs/token_overlap_demonstration.txt
+!outputs/token_chunks_sample.json
 *.log
 .pytest_cache/
 .coverage

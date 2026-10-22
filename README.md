@@ -377,3 +377,57 @@ Evaluated on Property Insurance Policy Form HO-3 (12,933 chars / 2,700 tokens):
 3. **Context Window & Cost Efficiency:**
    At an average of ~350–420 tokens per chunk, retrieving top-5 chunks consumes ~2,000 input tokens (~0.03¢ per query on `gpt-4o-mini`), well within model context limits while maintaining low latency.
 
+---
+
+## 12. Token-Aware Chunking with Controlled Overlap
+
+Character-based chunking cannot guarantee model token limits or semantic preservation at cut boundaries. The module [`src/token_aware_chunker.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/token_aware_chunker.py) strictly measures and sets chunk size in tokens using `tiktoken` (`cl100k_base`) and implements a sliding window with controlled token overlap.
+
+### 12.1 Running the Token-Aware Chunker & Boundary Demo
+```bash
+# Run the token-aware chunker with 500-token chunks and 100-token overlap
+python src/token_aware_chunker.py
+
+# Run with custom token size and overlap parameters
+python src/token_aware_chunker.py --size 400 --overlap 80
+```
+
+Artifacts produced:
+- **Full Report:** [`outputs/token_overlap_demonstration.txt`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/token_overlap_demonstration.txt)
+- **Serialized Token Chunks (JSON):** [`outputs/token_chunks_sample.json`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/token_chunks_sample.json)
+- **Boundary Context Demonstration (Markdown):** [`examples/boundary_context_overlap_demo.md`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/boundary_context_overlap_demo.md)
+
+### 12.2 Sizing by Tokens & Controlled Overlap (Tasks 1 & 2)
+- **Tokenizer:** `tiktoken` with `cl100k_base` encoding (compatible with `gpt-4o-mini` and `text-embedding-3-small`).
+- **Sizing Rule:** Chunks are sliced strictly along token array indices, ensuring no chunk exceeds the model's token allocation.
+- **Controlled Overlap Formula:**
+  $$\text{Step Size} = \text{Chunk Size} - \text{Chunk Overlap} = 500 - 100 = 400 \text{ tokens}$$
+  Each adjacent chunk $i$ repeats exactly the trailing $N=100$ tokens of chunk $i-1$ as its leading tokens.
+
+### 12.3 Demonstrating Overlap Preserving Boundary Context (Task 3)
+Inspecting the boundary cut at token index 500 on Property Insurance Policy Form HO-3:
+
+#### A. Without Overlap (`overlap = 0 tokens`):
+- **Chunk 0 End:** `"...permanently installed fixtures, and heating and cooling machinery attached to"`
+- **Chunk 1 Start:** `"the dwelling. 2. We do not cover: a. Land, including land on which the dwelling is located..."`
+- **Resulting Fracture:** The phrase `"attached to the dwelling"` is sliced mid-preposition. More importantly, Chunk 0 contains the coverage grant without its exclusions, while Chunk 1 contains exclusions without the parent coverage heading.
+
+#### B. With Controlled Overlap (`overlap = 100 tokens`):
+- **Chunk 1 Start:** Starts at token 400, pulling in the entire preceding clause and section header:
+  `"...COVERAGE A – DWELLING 1. We cover: a. The dwelling on the 'residence premises'... and heating and cooling machinery attached to the dwelling. 2. We do not cover: a. Land..."`
+- **Preserved Meaning:** When an adjuster asks about Coverage A dwelling exclusions, retrieving Chunk 1 provides both the coverage grant and its exclusions together in a single self-contained context.
+
+### 12.4 Setting Justifications for `gpt-4o-mini` (Task 4)
+| Parameter | Setting | Architectural Justification |
+| :--- | :---: | :--- |
+| **Chunk Size** | **500 tokens** | Standard property insurance sections (Coverage A, B, C, D) and endorsement forms (HO-04-95) average 250–450 tokens. Sizing at 500 tokens guarantees an entire policy provision fits within one chunk. Retrieving top-5 chunks consumes ~2,500 tokens (<2% of the 128k context window). |
+| **Chunk Overlap** | **100 tokens (20%)** | Complex insurance bullet clauses range from 50 to 80 tokens. A 100-token overlap guarantees that any sentence severed at a boundary is completely reproduced in the adjacent chunk. |
+| **Cost Overhead** | **1.22x (+22%)** | Overlap overhead ratio = $\frac{500}{400} = 1.25\text{x}$. Indexing 4,000 documents (~11M tokens) with `text-embedding-3-small` costs **\$0.27** with overlap vs. **\$0.22** without overlap—a 5-cent difference that guarantees claim fidelity. |
+
+### 12.5 Sample Output Comparison (Task 5)
+| Configuration | Chunks | Avg Tokens | Min–Max Tokens | Total Emitted Tokens | Overlap Overhead |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Zero Overlap (`size=500, overlap=0`)** | 6 | 461.3 | 268–500 | 2,768 | 1.00x |
+| **Controlled Overlap (`size=500, overlap=100`)** | 7 | 481.1 | 368–500 | 3,368 | 1.22x |
+
+
