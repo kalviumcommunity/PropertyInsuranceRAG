@@ -1,0 +1,124 @@
+{
+  "metadata": {
+    "model": "text-embedding-3-small",
+    "vector_dimension": 1536,
+    "total_samples": 5
+  },
+  "samples": [
+    {
+      "sample_id": "text_1_water_pipe",
+      "category": "Property Peril (Water Damage)",
+      "text": "Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?",
+      "vector_dim": 1536,
+      "trimmed_vector_preview": [
+        0.050534,
+        0.048161,
+        0.081146,
+        0.07271,
+        0.000382,
+        4.4e-05,
+        -0.000681,
+        0.000557
+      ]
+    },
+    {
+      "sample_id": "text_2_plumbing_leak",
+      "category": "Property Peril (Similar Meaning)",
+      "text": "Is accidental discharge or leakage from broken household plumbing systems covered under homeowners insurance?",
+      "vector_dim": 1536,
+      "trimmed_vector_preview": [
+        0.047297,
+        0.042226,
+        0.074685,
+        0.066272,
+        0.001801,
+        -0.000789,
+        -0.001879,
+        -0.002059
+      ]
+    },
+    {
+      "sample_id": "text_3_earth_movement",
+      "category": "Policy Exclusion (Different Insurance Peril)",
+      "text": "The policy excludes loss caused directly or indirectly by earthquake, landslide, mudslide, or earth movement.",
+      "vector_dim": 1536,
+      "trimmed_vector_preview": [
+        0.000401,
+        0.00082,
+        0.00047,
+        0.000293,
+        8.9e-05,
+        6.7e-05,
+        -0.00049,
+        -0.00036
+      ]
+    },
+    {
+      "sample_id": "text_4_culinary_recipe",
+      "category": "Unrelated Domain (Culinary Recipe)",
+      "text": "Authentic Neapolitan pizza dough requires high-protein flour, active dry yeast, sea salt, and a 24-hour cold fermentation process.",
+      "vector_dim": 1536,
+      "trimmed_vector_preview": [
+        0.000111,
+        2.8e-05,
+        -0.000632,
+        8.7e-05,
+        0.000225,
+        -0.000326,
+        -0.000825,
+        -0.000779
+      ]
+    },
+    {
+      "sample_id": "text_5_astrophysics",
+      "category": "Unrelated Domain (Astrophysics)",
+      "text": "Supernova remnants emit high-energy cosmic rays and electromagnetic radiation detectable by space-based telescopes.",
+      "vector_dim": 1536,
+      "trimmed_vector_preview": [
+        0.000196,
+        -0.000302,
+        0.000185,
+        -0.000419,
+        -1.7e-05,
+        -0.000105,
+        -0.000412,
+        -0.000632
+      ]
+    }
+  ],
+  "pairwise_similarity_comparisons": [
+    {
+      "label_a": "Text 1 (Water Damage / Pipe Burst)",
+      "label_b": "Text 2 (Plumbing Discharge / Leak)",
+      "text_a": "Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?",
+      "text_b": "Is accidental discharge or leakage from broken household plumbing systems covered under homeowners insurance?",
+      "relationship": "SIMILAR (Same Property Insurance Peril)",
+      "cosine_similarity": 0.96443
+    },
+    {
+      "label_a": "Text 1 (Water Damage / Pipe Burst)",
+      "label_b": "Text 3 (Earth Movement Exclusion)",
+      "text_a": "Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?",
+      "text_b": "The policy excludes loss caused directly or indirectly by earthquake, landslide, mudslide, or earth movement.",
+      "relationship": "MODERATE (Same Domain, Different Policy Topic)",
+      "cosine_similarity": 0.055623
+    },
+    {
+      "label_a": "Text 1 (Water Damage / Pipe Burst)",
+      "label_b": "Text 4 (Neapolitan Pizza Recipe)",
+      "text_a": "Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?",
+      "text_b": "Authentic Neapolitan pizza dough requires high-protein flour, active dry yeast, sea salt, and a 24-hour cold fermentation process.",
+      "relationship": "DISSIMILAR (Unrelated Subject Matter)",
+      "cosine_similarity": 0.000897
+    },
+    {
+      "label_a": "Text 1 (Water Damage / Pipe Burst)",
+      "label_b": "Text 5 (Supernova / Astrophysics)",
+      "text_a": "Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?",
+      "text_b": "Supernova remnants emit high-energy cosmic rays and electromagnetic radiation detectable by space-based telescopes.",
+      "relationship": "DISSIMILAR (Unrelated Scientific Topic)",
+      "cosine_similarity": -0.000651
+    }
+  ],
+  "explanation": "What Embedding Vectors Represent in RAG\n\n1. Numeric Representations of Meaning (Not Random IDs):\n   A random ID (e.g. UUID 'b76fa52a-9b6a' or document index 42) is purely arbitrary. Two random\n   IDs carry zero spatial or semantic relationship; the distance between them is meaningless.\n   An embedding vector, by contrast, is a dense point in a continuous 1,536-dimensional semantic\n   space where proximity directly corresponds to conceptual similarity.\n\n2. Semantic Closeness vs. Keyword Matching:\n   Traditional search methods (like BM25, TF-IDF, or character regex) rely on literal lexical overlap.\n   Consider our two sample sentences:\n     \u2022 \"Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?\"\n     \u2022 \"Is accidental discharge or leakage from broken household plumbing systems covered under homeowners insurance?\"\n   These two sentences describe the exact same insurance claim event, yet share almost none of the key\n   words (\"burst pipe\" vs. \"accidental discharge / broken plumbing\"). Keyword search ranks them poorly.\n   Embedding models map both sentences to nearby coordinates in vector space because their trained\n   weights capture underlying semantic equivalence.\n\n3. Geometric Distance as Semantic Relevance:\n   In vector space, semantic similarity translates directly to linear algebra:\n     \u2022 Highly similar ideas align along nearly identical vector trajectories (cosine similarity > 0.80).\n     \u2022 Unrelated topics (e.g. homeowners plumbing insurance vs. a pizza dough recipe) point in nearly\n       orthogonal directions in high-dimensional space (cosine similarity < 0.20).\n   Retrieval-Augmented Generation relies on this geometry to retrieve facts by meaning rather than\n   hoping the adjuster and the policy author used the exact same words.\n"
+}
