@@ -1,0 +1,34 @@
+{
+  "note": "Offline mocked API fixture for output-shape verification; these are test vectors, not live provider embeddings.",
+  "model": "test-embedding-model",
+  "chunks_embedded": 2,
+  "vector_length": 3,
+  "records": [
+    {
+      "text": "COVERAGE A - DWELLING\n\nWe cover the dwelling on the residence premises.",
+      "metadata": {
+        "source": "examples/chunk_metadata_source.txt",
+        "section": "COVERAGE A - DWELLING",
+        "page": null,
+        "position": 0,
+        "start_char": 0,
+        "end_char": 71
+      },
+      "vector_length": 3,
+      "vector_preview": [0.1, 0.2, 0.3]
+    },
+    {
+      "text": "We also cover attached structures.",
+      "metadata": {
+        "source": "examples/chunk_metadata_source.txt",
+        "section": "COVERAGE A - DWELLING",
+        "page": 2,
+        "position": 1,
+        "start_char": 81,
+        "end_char": 115
+      },
+      "vector_length": 3,
+      "vector_preview": [0.4, 0.5, 0.6]
+    }
+  ]
+}
