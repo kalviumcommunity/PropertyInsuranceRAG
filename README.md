@@ -346,9 +346,38 @@ Run `python -m src.ingestion` to load every file under `data/`, clean the text u
 
 Every non-control file is counted as a source document. Successfully ingested documents plus explicitly recorded failures must equal that count; unsupported file types and read/clean/chunk errors are recorded as failures. The repository `.gitkeep` placeholder is explicitly reported as skipped, not counted as a document. A runtime check raises if the source count does not reconcile. `pytest tests/test_ingestion.py` covers accounting, recorded failures, sample provenance, and output safety.
 
+## 13. Generating and Storing Chunk Embeddings
+
+Set `OPENAI_API_KEY`, `EMBED_MODEL`, and, when needed, `OPENAI_BASE_URL` in
+`.env` or the process environment. The embedding script uses the existing
+chunk provenance format and writes one JSONL record per chunk with its complete
+vector, source text, and source/section/page/position/offset metadata:
+
+```bash
+python -m src.embed_chunks
+```
+
+By default, it embeds the small prepared corpus in
+`examples/chunk_metadata_source.txt` using `CHUNK_SIZE` and writes complete
+vectors to the ignored `outputs/embedded_chunks.jsonl`. To choose input/output
+paths or save a compact report with vector dimensions and the first five values
+per vector:
+
+```powershell
+python -m src.embed_chunks --input examples/chunk_metadata_source.txt `
+  --output outputs/embedded_chunks.jsonl `
+  --sample-output outputs/embedding_sample_output.json
+```
+
+The committed [`outputs/embedding_sample_output.json`](outputs/embedding_sample_output.json)
+shows the report shape with an explicitly labeled offline test fixture; it is
+not a live provider response. Vector previews are intentionally trimmed while
+the JSONL store retains complete vectors. Run `pytest tests/test_embed_chunks.py`
+to check request construction, response validation, provenance, and output.
+
 ---
 
-## 13. Token-Aware Chunking with Controlled Overlap
+## 14. Token-Aware Chunking with Controlled Overlap
 
 Character-based chunking cannot guarantee model token limits or semantic preservation at cut boundaries. The module [`src/token_aware_chunker.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/token_aware_chunker.py) strictly measures and sets chunk size in tokens using `tiktoken` (`cl100k_base`) and implements a sliding window with controlled token overlap.
 
