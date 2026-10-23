@@ -44,6 +44,8 @@ outputs/*
 !outputs/token_chunks_sample.json
 !outputs/ingestion_summary.json
 !outputs/ingestion_sample_chunks.jsonl
+!outputs/embedding_demonstration.txt
+!outputs/sample_embeddings.json
 *.log
 .pytest_cache/
 .coverage

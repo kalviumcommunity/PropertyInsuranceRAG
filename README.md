@@ -398,3 +398,56 @@ Inspecting the boundary cut at token index 500 on Property Insurance Policy Form
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Zero Overlap (`size=500, overlap=0`)** | 6 | 461.3 | 268–500 | 2,768 | 1.00x |
 | **Controlled Overlap (`size=500, overlap=100`)** | 7 | 481.1 | 368–500 | 3,368 | 1.22x |
+
+
+---
+
+## 14. Text Embeddings & Semantic Vector Demonstration
+
+In a property insurance RAG pipeline, adjusters frequently query policies using everyday phrasing (e.g., *"burst water pipe"*) while official policy forms use statutory legalese (e.g., *"accidental discharge or overflow of water from within a plumbing system"*). Traditional keyword search fails on these queries due to zero lexical overlap. The module [`src/embeddings.py`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/src/embeddings.py) demonstrates how dense embedding vectors bridge this gap by encoding semantic meaning into continuous geometric space.
+
+### 14.1 Running the Embedding Demonstration
+```bash
+# Run the embedding demonstration and generate output artifacts
+python src/embeddings.py
+
+# Run in forced offline simulation mode
+python src/embeddings.py --offline
+```
+
+Deliverables produced:
+- **CLI Report:** [`outputs/embedding_demonstration.txt`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/embedding_demonstration.txt)
+- **JSON Vectors & Similarity Matrix:** [`outputs/sample_embeddings.json`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/outputs/sample_embeddings.json)
+- **Markdown Documentation:** [`examples/embedding_similarity_demo.md`](file:///c:/Users/parvj/OneDrive/Desktop/PropertyInsuranceRAG/examples/embedding_similarity_demo.md)
+
+### 14.2 Vector Dimension Uniformity (Tasks 1 & 2)
+Embedding models map variable-length text strings to a fixed $D$-dimensional coordinate space. Using `text-embedding-3-small`, every sample text strictly produces an identical vector of $D = 1,536$ dimensions:
+
+| Sample ID | Domain Category | Text Sample | Vector Shape | Trimmed Preview |
+| :--- | :--- | :--- | :---: | :--- |
+| `text_1_water_pipe` | Property Peril (Water Damage) | *"Does policy HO-3 cover sudden water damage resulting from a frozen or burst plumbing pipe?"* | `(1, 1536)` | `[0.0505, 0.0482, ... 0.0006]` |
+| `text_2_plumbing_leak` | Property Peril (Similar Meaning) | *"Is accidental discharge or leakage from broken household plumbing systems covered under homeowners insurance?"* | `(1, 1536)` | `[0.0473, 0.0422, ... -0.0021]` |
+| `text_3_earth_movement` | Policy Exclusion (Different Peril) | *"The policy excludes loss caused directly or indirectly by earthquake, landslide, mudslide, or earth movement."* | `(1, 1536)` | `[0.0004, 0.0008, ... -0.0004]` |
+| `text_4_culinary_recipe` | Unrelated Domain (Culinary Recipe) | *"Authentic Neapolitan pizza dough requires high-protein flour, active dry yeast, sea salt, and a 24-hour cold fermentation process."* | `(1, 1536)` | `[0.0001, 0.0000, ... -0.0008]` |
+| `text_5_astrophysics` | Unrelated Domain (Astrophysics) | *"Supernova remnants emit high-energy cosmic rays and electromagnetic radiation detectable by space-based telescopes."* | `(1, 1536)` | `[0.0002, -0.0003, ... -0.0006]` |
+
+### 14.3 Semantic Cosine Similarity (Task 3)
+Cosine similarity measures the angular orientation between two normalized vectors:
+$$\text{cosine\_similarity}(u, v) = \frac{u \cdot v}{\|u\| \|v\|}$$
+
+| Pair Comparison | Relationship | Cosine Similarity | Interpretation |
+| :--- | :--- | :---: | :--- |
+| **Text 1 vs. Text 2** | **SIMILAR (Same Property Insurance Peril)** | **`0.9644`** | High semantic alignment despite completely different vocabulary (*burst pipe* vs. *broken plumbing*). |
+| **Text 1 vs. Text 3** | **MODERATE (Same Domain, Different Topic)** | **`0.0556`** | Shares general policy terminology, but diverges sharply on specific peril. |
+| **Text 1 vs. Text 4** | **DISSIMILAR (Unrelated Subject Matter)** | **`0.0009`** | Near-orthogonal separation between property insurance and pizza baking. |
+| **Text 1 vs. Text 5** | **DISSIMILAR (Unrelated Scientific Topic)** | **`-0.0007`** | Near-orthogonal separation between property insurance and astrophysics. |
+
+**Key Finding:** The similar pair scores dramatically higher than the dissimilar pair (**`0.9644` vs. `0.0009`**), proving that vector distance reflects semantic meaning rather than lexical overlap.
+
+### 14.4 Conceptual Note: What Vectors Represent (Task 4)
+1. **Dense Representations of Meaning (Not Random IDs):**
+   A random ID (e.g., UUID or integer hash) is arbitrary; the mathematical distance between two random IDs carries zero information. Embedding vectors place texts into a continuous geometric coordinate space where distance represents conceptual similarity.
+2. **Semantic Generalization (Beyond Keyword Matching):**
+   Sparse keyword models (BM25, TF-IDF) fail when an adjuster and an underwriter use different synonyms. Neural embeddings map concepts into latent dimensions learned across billions of text relationships, allowing RAG to retrieve relevant policy clauses regardless of exact phrasing.
+3. **Geometric Proximity as Relevance:**
+   In 1,536-dimensional space, vector dot products reflect semantic alignment. When an adjuster asks a question, ChromaDB retrieves the top-$K$ chunks closest in vector angle, ensuring grounded and relevant context for generation.
