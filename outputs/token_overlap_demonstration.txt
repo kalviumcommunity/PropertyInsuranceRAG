@@ -47,7 +47,7 @@ A. WITHOUT OVERLAP (overlap = 0 tokens):
 B. WITH CONTROLLED OVERLAP (overlap = 100 tokens):
    [Chunk 1 Start]: "four family dwelling where you reside in at least one of the family units; or that part of any other building where you ..."
    ANALYSIS:
-   With 100-token overlap, Chunk 1 repeats the preceding 100 tokens:
+   With 100-token overlap, Chunk 1 repeats the preceding 100 tokens (exact match: True):
   • Chunk 1 starts earlier at token 400, opening with:
     "four family dwelling where you reside in at least one of the family units; or that part of any other building where you reside; and which is..."
   -> Consequence: The entire clause, including its parent heading, coverage specification, and condition, appears completely intact within Chunk 1.
@@ -67,13 +67,13 @@ EMBEDDING MODEL: text-embedding-3-small (8,191 context limit, $0.02/1M tokens)
    • Context Budget: Retrieving top-5 chunks of 500 tokens consumes ~2,500 input tokens,
      utilizing less than 2% of gpt-4o-mini's 128k context window.
 
-2. Why Overlap = 100 Tokens (20%)?
+2. Why Overlap = 100 Tokens (20.0%)?
    • Spans Sentence & Clause Length: Average English sentences are 20-30 tokens; insurance
-     bullet conditions are 50-80 tokens. A 100-token overlap guarantees that any sentence severed
-     at a boundary is reproduced in its entirety in the next chunk.
+     bullet conditions are 50-80 tokens. A 100-token overlap gives a substantial
+     context window when a sentence is severed at a boundary.
    • Financial & Storage Overhead: The token overhead ratio is:
-     chunk_size / (chunk_size - chunk_overlap) = 500 / 400 = 1.22x (+25% tokens).
-     For 4,000 property insurance documents (~11M tokens), embedding the corpus with 25% overlap
+     chunk_size / (chunk_size - chunk_overlap) = 500 / 400 = 1.22x (+22.0% tokens).
+     For 4,000 property insurance documents (~11M tokens), embedding the corpus with 22.0% overlap
      costs ~$0.27 vs. $0.22—a negligible 5-cent difference that completely eliminates misquotes!
 
 ----------------------------------------------------------------------------------------

@@ -63,6 +63,8 @@ class BoundaryInspection:
     without_overlap_chunk0_end: str
     without_overlap_chunk1_start: str
     with_overlap_chunk1_start: str
+    repeated_token_count: int
+    repeated_tokens_match: bool
     severed_concept_description: str
     intact_concept_in_overlap: str
 
@@ -247,22 +249,33 @@ def demonstrate_boundary_context(
 
     chunks_no_overlap = chunker_no_overlap.chunk(text, doc_id="no_ovl")
     chunks_with_overlap = chunker_with_overlap.chunk(text, doc_id="with_ovl")
+    if len(chunks_no_overlap) < 2 or len(chunks_with_overlap) < 2:
+        raise ValueError(
+            "Boundary demonstration requires text longer than chunk_size tokens"
+        )
 
     tokenizer = get_tokenizer(encoding_name)
-    tokens = tokenizer.encode(text)
-
     # Inspect the first cut boundary at token `chunk_size`
     cut_idx = chunk_size
     window_snippet_tokens = 35
 
+    # Read evidence from the emitted chunks so the demonstration tests the
+    # chunker's real output rather than reconstructing an expected window.
+    c0_no_overlap_tokens = tokenizer.encode(chunks_no_overlap[0].text)
+    c1_no_overlap_tokens = tokenizer.encode(chunks_no_overlap[1].text)
+    c1_with_overlap_tokens = tokenizer.encode(chunks_with_overlap[1].text)
+    repeated_tokens = c0_no_overlap_tokens[-chunk_overlap:]
+    repeated_token_count = len(repeated_tokens)
+    repeated_tokens_match = (
+        repeated_tokens == c1_with_overlap_tokens[:repeated_token_count]
+    )
+
     # Without overlap: trailing tokens of chunk 0, leading tokens of chunk 1
-    c0_tail = tokenizer.decode(tokens[cut_idx - window_snippet_tokens : cut_idx]).strip()
-    c1_head_no_ovl = tokenizer.decode(tokens[cut_idx : cut_idx + window_snippet_tokens]).strip()
+    c0_tail = tokenizer.decode(c0_no_overlap_tokens[-window_snippet_tokens:]).strip()
+    c1_head_no_ovl = tokenizer.decode(c1_no_overlap_tokens[:window_snippet_tokens]).strip()
 
     # With overlap: leading tokens of chunk 1 (starts at cut_idx - chunk_overlap)
-    c1_head_with_ovl = tokenizer.decode(
-        tokens[cut_idx - chunk_overlap : cut_idx + window_snippet_tokens]
-    ).strip()
+    c1_head_with_ovl = tokenizer.decode(c1_with_overlap_tokens[: chunk_overlap + window_snippet_tokens]).strip()
 
     severed_concept = (
         "Without overlap, the coverage term is fractured at the exact token cutoff:\n"
@@ -273,7 +286,8 @@ def demonstrate_boundary_context(
     )
 
     intact_concept = (
-        f"With {chunk_overlap}-token overlap, Chunk 1 repeats the preceding {chunk_overlap} tokens:\n"
+        f"With {repeated_token_count}-token overlap, Chunk 1 repeats the preceding "
+        f"{repeated_token_count} tokens (exact match: {repeated_tokens_match}):\n"
         f"  • Chunk 1 starts earlier at token {cut_idx - chunk_overlap}, opening with:\n"
         f"    \"{c1_head_with_ovl[:140]}...\"\n"
         "  -> Consequence: The entire clause, including its parent heading, coverage specification, "
@@ -285,6 +299,8 @@ def demonstrate_boundary_context(
         without_overlap_chunk0_end=c0_tail,
         without_overlap_chunk1_start=c1_head_no_ovl,
         with_overlap_chunk1_start=c1_head_with_ovl,
+        repeated_token_count=repeated_token_count,
+        repeated_tokens_match=repeated_tokens_match,
         severed_concept_description=severed_concept,
         intact_concept_in_overlap=intact_concept,
     )
@@ -389,13 +405,15 @@ def generate_full_report(
         "     over 1,000 tokens dilute embedding specificity and pull irrelevant text into the context.\n"
         "   • Context Budget: Retrieving top-5 chunks of 500 tokens consumes ~2,500 input tokens,\n"
         "     utilizing less than 2% of gpt-4o-mini's 128k context window.\n\n"
-        f"2. Why Overlap = {chunk_overlap} Tokens (20%)?\n"
+        f"2. Why Overlap = {chunk_overlap} Tokens ({(chunk_overlap / chunk_size) * 100:.1f}%)?\n"
         "   • Spans Sentence & Clause Length: Average English sentences are 20-30 tokens; insurance\n"
-        "     bullet conditions are 50-80 tokens. A 100-token overlap guarantees that any sentence severed\n"
-        "     at a boundary is reproduced in its entirety in the next chunk.\n"
+        f"     bullet conditions are 50-80 tokens. A {chunk_overlap}-token overlap gives a substantial\n"
+        "     context window when a sentence is severed at a boundary.\n"
         "   • Financial & Storage Overhead: The token overhead ratio is:\n"
-        f"     chunk_size / (chunk_size - chunk_overlap) = {chunk_size} / {chunk_size - chunk_overlap} = {stats_ovl.overlap_overhead_ratio:.2f}x (+25% tokens).\n"
-        "     For 4,000 property insurance documents (~11M tokens), embedding the corpus with 25% overlap\n"
+        f"     chunk_size / (chunk_size - chunk_overlap) = {chunk_size} / {chunk_size - chunk_overlap} = {stats_ovl.overlap_overhead_ratio:.2f}x "
+        f"(+{(stats_ovl.overlap_overhead_ratio - 1) * 100:.1f}% tokens).\n"
+        f"     For 4,000 property insurance documents (~11M tokens), embedding the corpus with "
+        f"{(stats_ovl.overlap_overhead_ratio - 1) * 100:.1f}% overlap\n"
         "     costs ~$0.27 vs. $0.22—a negligible 5-cent difference that completely eliminates misquotes!"
     )
 
