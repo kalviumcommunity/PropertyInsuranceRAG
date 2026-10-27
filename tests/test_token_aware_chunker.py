@@ -121,6 +121,8 @@ class TestBoundaryContextPreservation:
         assert len(boundary.without_overlap_chunk0_end) > 0
         assert len(boundary.without_overlap_chunk1_start) > 0
         assert len(boundary.with_overlap_chunk1_start) > 0
+        assert boundary.repeated_token_count == chunk_overlap
+        assert boundary.repeated_tokens_match is True
         # Overlap chunk should include context preceding the boundary cutoff
         assert boundary.without_overlap_chunk0_end[-20:] in boundary.with_overlap_chunk1_start
 
